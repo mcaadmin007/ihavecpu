@@ -1,0 +1,2 @@
+CREATE TABLE report_months (id TEXT PRIMARY KEY, year INTEGER NOT NULL, month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12), label TEXT NOT NULL, short_label TEXT NOT NULL, budget REAL NOT NULL, actual REAL NOT NULL, sales REAL NOT NULL, source_roas REAL, UNIQUE(year,month));
+CREATE TABLE platform_performance (month_id TEXT NOT NULL REFERENCES report_months(id), platform TEXT NOT NULL, display_order INTEGER NOT NULL, budget REAL NOT NULL, actual REAL, sales REAL, source_roas REAL, PRIMARY KEY(month_id,platform));
