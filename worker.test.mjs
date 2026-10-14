@@ -28,6 +28,14 @@ test('HTML and assets are served by the asset binding',async()=>{
  assert.equal(await (await worker.fetch(new Request('https://example.com/'),env)).text(),'asset');
 });
 import {normalize,metaReport} from './meta.js';
+test('Platform snapshots are read-only and preserve missing sales',async()=>{
+ const payload={name:'Google',mode:'snapshot',months:[{month:1,actual:10,clicks:5}]};
+ const platformEnv={DB:{prepare:()=>({all:async()=>({results:[{payload:JSON.stringify(payload),updated_at:'now'}]})})}};
+ const response=await worker.fetch(new Request('https://example.com/api/platforms'),platformEnv);
+ const result=await response.json();
+ assert.equal(response.status,200);assert.equal(result.accounts[0].months[0].sales,undefined);
+ assert.equal((await worker.fetch(new Request('https://example.com/api/platforms',{method:'POST'}),platformEnv)).status,405);
+});
 test('Meta uses omni purchase once, preserves unavailable revenue and sessions',()=>{
  const result=normalize({date_start:'2026-01-01',spend:'10',clicks:'5',impressions:'100',actions:[{action_type:'omni_purchase',value:'2'},{action_type:'purchase',value:'2'}]});
  assert.equal(result.orders,2);assert.equal(result.sales,null);assert.equal(result.sessions,undefined);assert.equal(result.actual,10);

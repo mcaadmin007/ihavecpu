@@ -2,6 +2,15 @@ import {metaReport} from './meta.js';
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if(url.pathname === '/api/platforms'){
+      if(!['GET','HEAD'].includes(request.method))return Response.json({error:'Method not allowed'},{status:405});
+      try {
+        const result=await env.DB.prepare('SELECT payload,updated_at FROM platform_snapshots ORDER BY name').all();
+        const accounts=result.results.map(row=>({...JSON.parse(row.payload),updatedAt:row.updated_at}));
+        const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
+        return request.method==='HEAD'?new Response(null,{headers}):Response.json({accounts},{headers});
+      }catch{return Response.json({error:'Platform reports unavailable'},{status:503});}
+    }
     if(url.pathname === '/api/meta'){
       if(!['GET','HEAD'].includes(request.method))return Response.json({error:'Method not allowed'},{status:405});
       try { const data=await metaReport(env); return request.method==='HEAD'?new Response(null):Response.json(data,{headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}}); }
