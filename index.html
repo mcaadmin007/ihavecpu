@@ -1,32 +1,7 @@
-<!doctype html>
-<html lang="th" data-theme="light">
-<head>
-  <meta charset="utf-8">
-  <meta name="robots" content="noindex,nofollow">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>iHAVECPU — Advertising Performance 2026</title>
-  <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-<main class="wrap">
-  <header>
-    <div><div class="eyebrow">iHAVECPU · MEDIA PERFORMANCE</div><h1>แดชบอร์ดผลการดำเนินงานโฆษณา</h1><div class="sub">ข้อมูลรายเดือนจากฐานข้อมูล · มกราคม–กันยายน 2569</div></div>
-    <button class="theme" id="themeBtn" type="button">◐ เปลี่ยนธีม</button>
-  </header>
-  <p id="status" role="status" aria-live="polite">กำลังโหลดข้อมูล…</p>
-  <nav class="months" id="months" aria-label="เลือกเดือน"></nav>
-  <section class="kpis" id="kpis"></section>
-  <section class="insights" id="insights"></section>
-  <section class="grid">
-    <article class="card panel"><h2>แนวโน้มยอดขายรายเดือน</h2><p>ยอดขายรวมจากทุกแพลตฟอร์ม (ล้านบาท)</p><div class="legend"><span><i class="sw" style="background:var(--blue)"></i>ยอดขาย</span></div><svg id="salesChart" class="chart" role="img" aria-label="กราฟแนวโน้มยอดขาย"></svg></article>
-    <article class="card panel"><h2>งบประมาณเทียบยอดใช้จริง</h2><p>ภาพรวมรายเดือน (แสนบาท)</p><div class="legend"><span><i class="sw" style="background:var(--muted)"></i>งบประมาณ</span><span><i class="sw" style="background:var(--orange)"></i>ใช้จริง</span></div><svg id="spendChart" class="chart" role="img" aria-label="กราฟงบประมาณเทียบยอดใช้จริง"></svg></article>
-  </section>
-  <section class="card table-card">
-    <div class="table-head"><div><h2 id="tableTitle">รายละเอียดรายแพลตฟอร์ม</h2><p>ตัวเลขงบประมาณ ยอดใช้จริง และยอดขายเป็นหน่วยบาท</p></div><span class="pill" id="periodPill"></span></div>
-    <div class="table-scroll"><table><thead><tr><th>แพลตฟอร์ม</th><th>งบประมาณ</th><th>ใช้จริง</th><th>ผลต่างงบ</th><th>ยอดขาย</th><th>ROAS</th></tr></thead><tbody id="tbody"></tbody></table></div>
-  </section>
-  <p class="foot">หมายเหตุ: ROAS รายแพลตฟอร์มใช้ค่าที่แสดงในชีต Report ส่วน ROAS รวมบนการ์ดคำนวณจากยอดขายรวม ÷ ยอดใช้จริง ช่องว่างในต้นฉบับแสดงเป็น “—”</p>
-</main>
-<script src="/app.js" defer></script>
-</body>
-</html>
+<!doctype html><html lang="th"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>iHAVECPU Analytics</title><link rel="stylesheet" href="/styles.css"></head><body><div id="ih-preview" aria-label="ระบบรายงาน iHAVECPU">
+<div class="ih-shell">
+<aside class="ih-side"><div class="ih-brand">iHAVE<span>CPU</span></div><div class="ih-overline">COMMAND CENTER</div><nav class="ih-nav" aria-label="หน้าระบบ"><button data-page="overview" aria-current="page"><i data-lucide="layout-dashboard" aria-hidden="true"></i>ภาพรวมผู้บริหาร</button><button data-page="media"><i data-lucide="chart-column" aria-hidden="true"></i>ประสิทธิภาพราย Media</button><button data-page="drivers"><i data-lucide="package" aria-hidden="true"></i>ลูกค้า สินค้าและโฆษณา</button><button data-page="mediaPlan"><i data-lucide="calendar-range" aria-hidden="true"></i>Media Plan</button></nav><div class="ih-side-note"><strong>แหล่งข้อมูลรายงานเดิม</strong>ม.ค. – ก.ย. 2569<br>9 ช่องทางโฆษณา<div class="ih-badge-line"><span class="ih-tag ready">ข้อมูลจริง</span><span class="ih-tag wait">รอข้อมูลเพิ่ม</span></div></div></aside>
+<div class="ih-main"><header class="ih-top"><span class="ih-breadcrumb">iHAVECPU / <span id="ih-crumb">ภาพรวมผู้บริหาร</span></span><span class="ih-preview-tag">LIVE DATA</span></header><main class="ih-content"><div class="ih-heading"><div><h1 id="ih-title">ยอดขายดี แล้วกำไรล่ะ?</h1><p class="ih-sub" id="ih-subtitle">ภาพรวมยอดขาย ประสิทธิภาพโฆษณา และความพร้อมก่อนเพิ่มงบ</p></div><div class="ih-filter-group"><label class="ih-filter-field"><span>ปีรายงาน</span><select id="ih-year" aria-label="ปีรายงาน"><option value="2026">2569</option></select></label><label class="ih-filter-field"><span>เดือน</span><select id="ih-month" aria-label="เดือน"></select></label></div></div><div class="ih-period-caption" id="ih-period-caption"></div><div id="ih-screen" aria-live="polite"></div></main></div>
+</div>
+</div>
+<script src="/app.js" defer></script></body></html>
