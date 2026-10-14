@@ -1,6 +1,12 @@
+import {metaReport} from './meta.js';
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if(url.pathname === '/api/meta'){
+      if(!['GET','HEAD'].includes(request.method))return Response.json({error:'Method not allowed'},{status:405});
+      try { const data=await metaReport(env); return request.method==='HEAD'?new Response(null):Response.json(data,{headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}}); }
+      catch { return Response.json({error:'Meta report unavailable'},{status:503,headers:{'Cache-Control':'no-store'}}); }
+    }
     if (url.pathname !== '/api/report') {
       if (url.pathname.startsWith('/api/')) return Response.json({error:'Not found'}, {status:404});
       return env.ASSETS.fetch(request);

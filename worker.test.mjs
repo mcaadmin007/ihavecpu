@@ -27,3 +27,18 @@ test('Database failure returns 503 without exposing details',async()=>{
 test('HTML and assets are served by the asset binding',async()=>{
  assert.equal(await (await worker.fetch(new Request('https://example.com/'),env)).text(),'asset');
 });
+import {normalize,metaReport} from './meta.js';
+test('Meta uses omni purchase once, preserves unavailable revenue and sessions',()=>{
+ const result=normalize({date_start:'2026-01-01',spend:'10',clicks:'5',impressions:'100',actions:[{action_type:'omni_purchase',value:'2'},{action_type:'purchase',value:'2'}]});
+ assert.equal(result.orders,2);assert.equal(result.sales,null);assert.equal(result.sessions,undefined);assert.equal(result.actual,10);
+});
+test('Meta cached report avoids a network call and token is never returned',async()=>{
+ const payload={accounts:[],updatedAt:'test'};
+ const statement={run:async()=>{},bind(){return this;},first:async()=>({payload:JSON.stringify(payload),updated_at:Date.now()})};
+ assert.deepEqual(await metaReport({META_ACCESS_TOKEN:'secret',DB:{prepare:()=>statement}}),payload);
+});
+test('Meta API rejects writes and hides errors',async()=>{
+ assert.equal((await worker.fetch(new Request('https://example.com/api/meta',{method:'POST'}),env)).status,405);
+ const response=await worker.fetch(new Request('https://example.com/api/meta'),env);
+ assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'Meta report unavailable'});
+});
