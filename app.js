@@ -20,6 +20,7 @@ const sumAvailable=values=>{const known=values.filter(Number.isFinite);return kn
 const combinedMonths=Array.from({length:Math.max(originalMonths.length,metaPayload?Number(metaPayload.through.slice(5,7)):0,...platformPayload.accounts.map(a=>Number(a.through.slice(5,7))))},(_,i)=>{
  const original=originalMonths.find(m=>m.month===i+1),metrics={},sources={};
  const rows=mediaNames.map(name=>{
+  if(name==='INAPP SHP'&&i>=2)return [name,NaN,NaN,NaN,NaN];
   const old=original?.rows.find(r=>r[0]===name),a=platformPayload.accounts.find(a=>a.name===name)||metaPayload?.accounts.find(a=>a.name===name);
   const d=a?.months.find(m=>m.month===i+1);
   const actual=d?.actual??old?.[2]??NaN, sales=d&&a.source==="Google Ads report"?(d.sales??NaN):(d?.sales??old?.[3]??NaN),budget=old?.[1]??NaN;
@@ -175,7 +176,7 @@ function reportMetrics(month,name){
  if(!month.metrics)return d;
  const entries=name?[month.metrics[name]||{}]:mediaNames.map(n=>month.metrics[n]||{});
  // The main Meta account covers Facebook and CPAS iHAVECPU: count it once in the overview.
- if(!name){const main=metaPayload?.accounts.find(a=>a.name==='iHAVECPU (Meta)')?.months.find(x=>x.month===month.month);if(main)entries.push(main);}
+ if(!name&&!metaPayload?.mainAccountSplit){const main=metaPayload?.accounts.find(a=>a.name==='iHAVECPU (Meta)')?.months.find(x=>x.month===month.month);if(main)entries.push(main);}
  for(const key of ['impressions','clicks','orders','cart','checkout'])d[key]=sumAvailable(entries.map(x=>x[key]));
  return d;
 }
