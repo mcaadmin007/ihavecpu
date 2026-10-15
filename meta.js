@@ -1,7 +1,7 @@
 const ACCOUNTS=[['518873608460591','iHAVECPU (Meta)'],['477807386443528','CPAS SHP'],['411325841312675','CPAS LAZ'],['1277324607445558','CPAS TIKTOK']];
 export function normalize(row,sharedItemsOnly=false){
  const action=(list,name)=>{const item=(list||[]).find(x=>x.action_type===name);return item&&Number.isFinite(Number(item.value))?Number(item.value):null;};
- return {month:Number(row.date_start.slice(5,7)),actual:Number(row.spend||0),sales:action(sharedItemsOnly?row.catalog_segment_value:row.action_values,'omni_purchase'),impressions:Number(row.impressions||0),clicks:Number(row.clicks||0),orders:action(row.actions,'omni_purchase'),cart:action(row.actions,'omni_add_to_cart'),checkout:action(row.actions,'omni_initiated_checkout'),landingPageViews:action(row.actions,'landing_page_view')};
+ return {month:Number(row.date_start.slice(5,7)),actual:Number(row.spend||0),sales:action(sharedItemsOnly?row.catalog_segment_value:row.action_values,'omni_purchase'),impressions:Number(row.impressions||0),clicks:Number(row.clicks||0),orders:action(row.actions,'omni_purchase'),cart:action(row.actions,'omni_add_to_cart'),checkout:action(row.actions,'omni_initiated_checkout'),landingPageViews:action(row.actions,'landing_page_view'),likes:action(row.actions,'like'),comments:action(row.actions,'comment'),shares:action(row.actions,'post'),inbox:action(row.actions,'onsite_conversion.messaging_conversation_started_7d')};
 }
 export function splitMainCampaigns(rows,sharedItemsOnly=false){
  const groups=new Map([['Facebook',new Map()],['CPAS iHAVECPU',new Map()]]);
@@ -58,7 +58,7 @@ export async function metaReport(env){
  if(!env.META_ACCESS_TOKEN)throw new Error('Meta not configured');
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS meta_report_cache (id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at INTEGER NOT NULL)').run();
  const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Bangkok'}).format(new Date()));
- const key=String(year)+'-campaign-verified-v5-shared-cpas', now=Date.now();
+ const key=String(year)+'-campaign-verified-v6-facebook-engagement', now=Date.now();
  let cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(key).first();
  if(cached&&now-cached.updated_at<3600000)return JSON.parse(cached.payload);
  
