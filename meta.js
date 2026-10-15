@@ -61,6 +61,7 @@ export async function metaReport(env){
  const key=String(year)+'-campaign-verified-v6-facebook-engagement', now=Date.now();
  let cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(key).first();
  if(cached&&now-cached.updated_at<3600000)return JSON.parse(cached.payload);
+ if(!cached)cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(String(year)+'-campaign-verified-v5-shared-cpas').first();
  
  try{
   const until=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Bangkok'}).format(new Date(now-86400000));
