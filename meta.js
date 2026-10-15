@@ -11,6 +11,20 @@ export function splitMainCampaigns(rows){
  }
  return [...groups].map(([name,byMonth])=>({id:'518873608460591',name,source:'Meta API · campaign',months:[...byMonth].sort((a,b)=>a[0]-b[0]).map(([month,list])=>Object.fromEntries([['month',month],...Object.keys(list[0]).filter(k=>k!=='month').map(k=>{const values=list.map(d=>d[k]).filter(Number.isFinite);return [k,values.length?values.reduce((a,b)=>a+b,0):null];})]))}));
 }
+export function completeMonths(months,through){
+ const last=Number(through.slice(5,7));
+ return Array.from({length:last},(_,i)=>months.find(m=>m.month===i+1)||{month:i+1,actual:0,sales:null,impressions:0,clicks:0,orders:null,cart:null,checkout:null,landingPageViews:null,status:'no_activity'});
+}
+export function reconcile(main,split){
+ for(const m of main.months){
+  const parts=split.map(a=>a.months.find(x=>x.month===m.month));
+  for(const key of ['actual','impressions','clicks','sales','orders','cart','checkout','landingPageViews']){
+   const values=parts.map(p=>p?.[key]).filter(Number.isFinite);
+   const total=values.length?values.reduce((a,b)=>a+b,0):null;
+   if(Number.isFinite(m[key])!==Number.isFinite(total)||(Number.isFinite(total)&&Math.abs(total-m[key])>(['actual','sales'].includes(key)?1:0.01)))throw new Error('Campaign '+key+' does not reconcile');
+  }
+ }
+}
 async function campaignInsights(env,year,until){
  const key=`campaign-job-${year}-${until}`,headers={Authorization:`Bearer ${env.META_ACCESS_TOKEN}`};
  const stored=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(key).first();
@@ -39,7 +53,7 @@ export async function metaReport(env){
  if(!env.META_ACCESS_TOKEN)throw new Error('Meta not configured');
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS meta_report_cache (id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at INTEGER NOT NULL)').run();
  const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Bangkok'}).format(new Date()));
- const key=String(year)+'-campaign-audit-v2', now=Date.now();
+ const key=String(year)+'-campaign-verified-v3', now=Date.now();
  let cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(key).first();
  if(cached&&now-cached.updated_at<3600000)return JSON.parse(cached.payload);
  if(!cached)cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(String(year)+'-campaign-v1').first();
@@ -55,10 +69,8 @@ export async function metaReport(env){
    return {id,name,months:result.data.map(normalize),actionBreakdown:result.data.map(r=>({month:Number(r.date_start.slice(5,7)),actions:r.actions||[],actionValues:r.action_values||[]}))};
   }));
   const main=accounts.find(a=>a.name==='iHAVECPU (Meta)');
-  for(const m of main.months){
-   const spend=split.reduce((n,a)=>n+(a.months.find(x=>x.month===m.month)?.actual||0),0);
-   if(Math.abs(spend-m.actual)>1)throw new Error('Campaign spend does not reconcile');
-  }
+  reconcile(main,split);
+  for(const account of [...accounts,...split]){account.months=completeMonths(account.months,until);account.source=account.source||'Meta API';account.through=until;}
   const result={year,through:until,updatedAt:new Date(now).toISOString(),accounts:[...accounts,...split],mainAccountSplit:true};
   await env.DB.prepare('INSERT INTO meta_report_cache(id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(key,JSON.stringify(result),now).run();
   return result;
