@@ -156,7 +156,7 @@ function enhanceMetrics(m){
 }
 
 const missingTag='<span class="ih-tag wait">ยังไม่มีข้อมูล</span>';
-function unavailableMetrics(sales,actual){return {sales,actual,orders:NaN,skuOrders:NaN,landingPageViews:NaN,sessions:NaN,clicks:NaN,impressions:NaN,cart:NaN,checkout:NaN,newCustomers:NaN,gross:NaN,fees:NaN,shipping:NaN,discount:NaN,refund:NaN,contribution:NaN,profit:NaN};}
+function unavailableMetrics(sales,actual){return {sales,actual,orders:NaN,conversions:NaN,skuOrders:NaN,landingPageViews:NaN,sessions:NaN,clicks:NaN,impressions:NaN,cart:NaN,checkout:NaN,newCustomers:NaN,gross:NaN,fees:NaN,shipping:NaN,discount:NaN,refund:NaN,contribution:NaN,profit:NaN};}
 
 function setReportSource(){
  months=combinedMonths;
@@ -179,7 +179,7 @@ function reportMetrics(month,name){
  const entries=name?[month.metrics[name]||{}]:mediaNames.map(n=>month.metrics[n]||{});
  // The main Meta account covers Facebook and CPAS iHAVECPU: count it once in the overview.
  if(!name&&!metaPayload?.mainAccountSplit){const main=metaPayload?.accounts.find(a=>a.name==='iHAVECPU (Meta)')?.months.find(x=>x.month===month.month);if(main)entries.push(main);}
- for(const key of ['impressions','clicks','orders','skuOrders','cart','checkout','landingPageViews'])d[key]=sumAvailable(entries.map(x=>x[key]));
+ for(const key of ['impressions','clicks','orders','skuOrders','cart','checkout','landingPageViews','conversions'])d[key]=sumAvailable(entries.map(x=>x[key]));
  return d;
 }
 
@@ -196,6 +196,7 @@ function funnelLine(d){
  const metrics=[['impressions','Impressions'],['clicks','Clicks'],['sessions','Sessions'],['cart','Add to cart'],['checkout','Checkout'],['orders','Orders']];
  if(Number.isFinite(d.landingPageViews))metrics.push(['landingPageViews','Landing page views']);
  if(Number.isFinite(d.skuOrders))metrics.push(['skuOrders','SKU Orders · TikTok']);
+ if(Number.isFinite(d.conversions))metrics.push(['conversions','Conversions · Google']);
  if(!metrics.some(x=>x[0]===trendMetric))trendMetric='impressions';
  const label=metrics.find(x=>x[0]===trendMetric)[1];
  const series=months.map((m,i)=>{const name=state.page==='media'&&state.media!=='all'?state.media:null;const row=name?m.rows.find(r=>r[0]===name):null;const data=reportMetrics(m,name);return {i,label:m.short,value:Number.isFinite(data?.[trendMetric])?data[trendMetric]:null};});
@@ -203,7 +204,7 @@ function funnelLine(d){
  const compact=n=>n>=1e6?fmt(n/1e6,1)+'M':n>=1000?fmt(n/1000,1)+'K':fmt(n);
  const points=series.map(p=>({...p,x:52+p.i*(480/Math.max(1,months.length-1)),y:150-(p.value||0)/maximum*125}));
  let path='',gap=true;for(const p of points){if(p.value==null){gap=true;continue;}path+=(gap?'M':'L')+p.x+','+p.y+' ';gap=false;}
- return `<div class="ih-funnel-line"><div class="ih-sub">${label} · แนวโน้มรายเดือน ปี 2569 · รวมเท่าที่มีข้อมูล</div><svg viewBox="0 0 570 190" role="img" data-has-values="${series.some(p=>Number.isFinite(p.value))}" aria-label="แนวโน้ม ${label} รายเดือน" style="width:100%;height:auto;display:block">${[0,.5,1].map(t=>`<line x1="52" y1="${150-t*125}" x2="532" y2="${150-t*125}" stroke="var(--ih-line)"/><text x="43" y="${154-t*125}" text-anchor="end" fill="var(--ih-muted)" font-size="12">${compact(maximum*t)}</text>`).join('')}<path d="${path}" fill="none" stroke="var(--ih-green)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${points.map(p=>`<text x="${p.x}" y="177" text-anchor="middle" fill="var(--ih-muted)" font-size="12">${p.label}</text>${p.value==null?'':`<circle cx="${p.x}" cy="${p.y}" r="${state.month===p.i?6:4}" fill="${state.month===p.i?'var(--ih-blue)':'var(--ih-green)'}"/><text x="${p.x}" y="${p.y-12}" text-anchor="middle" fill="var(--ih-ink)" font-size="11">${compact(p.value)}</text><circle cx="${p.x}" cy="${p.y}" r="16" fill="transparent" data-tooltip="${p.label} · ${label}: ${fmt(p.value)}"/>`}`).join('')}</svg><div class="ih-funnel-labels" role="group" aria-label="เลือกสถิติที่แสดงในกราฟ">${metrics.map(([key,title])=>`<button type="button" class="ih-metric-button" data-trend-metric="${key}" aria-pressed="${trendMetric===key}"><span>${title}</span><strong>${fmt(d[key])}</strong></button>`).join('')}</div></div>`;
+ return `<div class="ih-funnel-line"><div class="ih-sub">${label} · แนวโน้มรายเดือน ปี 2569 · รวมเท่าที่มีข้อมูล</div><svg viewBox="0 0 570 190" role="img" data-has-values="${series.some(p=>Number.isFinite(p.value))}" aria-label="แนวโน้ม ${label} รายเดือน" style="width:100%;height:auto;display:block">${[0,.5,1].map(t=>`<line x1="52" y1="${150-t*125}" x2="532" y2="${150-t*125}" stroke="var(--ih-line)"/><text x="43" y="${154-t*125}" text-anchor="end" fill="var(--ih-muted)" font-size="12">${compact(maximum*t)}</text>`).join('')}<path d="${path}" fill="none" stroke="var(--ih-green)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${points.map(p=>`<text x="${p.x}" y="177" text-anchor="middle" fill="var(--ih-muted)" font-size="12">${p.label}</text>${p.value==null?'':`<circle cx="${p.x}" cy="${p.y}" r="${state.month===p.i?6:4}" fill="${state.month===p.i?'var(--ih-blue)':'var(--ih-green)'}"/><text x="${p.x}" y="${p.y-12}" text-anchor="middle" fill="var(--ih-ink)" font-size="11">${compact(p.value)}</text><circle cx="${p.x}" cy="${p.y}" r="16" fill="transparent" data-tooltip="${p.label} · ${label}: ${fmt(p.value,trendMetric==='conversions'?2:0)}"/>`}`).join('')}</svg><div class="ih-funnel-labels" role="group" aria-label="เลือกสถิติที่แสดงในกราฟ">${metrics.map(([key,title])=>`<button type="button" class="ih-metric-button" data-trend-metric="${key}" aria-pressed="${trendMetric===key}"><span>${title}</span><strong>${fmt(d[key],key==='conversions'?2:0)}</strong></button>`).join('')}</div></div>`;
 }
 root.addEventListener('click',event=>{const target=event.target.closest('[data-trend-metric]');if(!target)return;trendMetric=target.dataset.trendMetric;const host=target.closest('.ih-funnel-line');const d=missingMetrics(selected(),state.page==='media'&&state.media!=='all'?state.media:null);if(d)host.outerHTML=funnelLine(d);cleanUnavailableCharts();root.querySelector(`[data-trend-metric="${trendMetric}"]`)?.focus();});
 
