@@ -174,7 +174,7 @@ function reportMetrics(month,name){
  const d=unavailableMetrics(name?row?.[3]:month.sales,name?row?.[2]:month.actual);
  if(!month.metrics)return d;
  const entries=name?[month.metrics[name]||{}]:mediaNames.map(n=>month.metrics[n]||{});
- for(const key of ['impressions','clicks','orders','cart','checkout'])d[key]=sumKnown(entries.map(x=>x[key]));
+ for(const key of ['impressions','clicks','orders','cart','checkout'])d[key]=sumAvailable(entries.map(x=>x[key]));
  return d;
 }
 
@@ -182,7 +182,7 @@ function missingMetrics(m,name=null){
  const source=state.month===-1?months:[m];
  const entries=source.map(x=>reportMetrics(x,name));
  if(entries.some(x=>!x))return null;
- return entries.reduce((a,b)=>{for(const k in b)a[k]=(k in a?a[k]:0)+b[k];return a;},{});
+ return Object.fromEntries(Object.keys(entries[0]).map(key=>[key,sumAvailable(entries.map(x=>x[key]))]));
 }
 function detailRows(rows){return rows.map(([a,b])=>`<div class="ih-water-row"><span>${a}</span><strong>${b}</strong></div>`).join('');}
 function funnelRows(d){return ['Impressions','Clicks','Sessions','Add to cart','Checkout','Orders'].map((label,i)=>{const values=[d.impressions,d.clicks,d.sessions,d.cart,d.checkout,d.orders];return `<div class="ih-step"><span>${label}</span><div class="ih-step-track"><span style="width:${values[i]/d.impressions*100}%;background:var(--ih-green)"></span></div><span>${fmt(values[i])}</span></div>`;}).join('');}
@@ -195,7 +195,7 @@ function funnelLine(d){
  const compact=n=>n>=1e6?fmt(n/1e6,1)+'M':n>=1000?fmt(n/1000,1)+'K':fmt(n);
  const points=series.map(p=>({...p,x:52+p.i*(480/Math.max(1,months.length-1)),y:150-(p.value||0)/maximum*125}));
  let path='',gap=true;for(const p of points){if(p.value==null){gap=true;continue;}path+=(gap?'M':'L')+p.x+','+p.y+' ';gap=false;}
- return `<div class="ih-funnel-line"><div class="ih-sub">${label} · แนวโน้มรายเดือน ปี 2569</div><svg viewBox="0 0 570 190" role="img" data-has-values="${series.some(p=>Number.isFinite(p.value))}" aria-label="แนวโน้ม ${label} รายเดือน" style="width:100%;height:auto;display:block">${[0,.5,1].map(t=>`<line x1="52" y1="${150-t*125}" x2="532" y2="${150-t*125}" stroke="var(--ih-line)"/><text x="43" y="${154-t*125}" text-anchor="end" fill="var(--ih-muted)" font-size="12">${compact(maximum*t)}</text>`).join('')}<path d="${path}" fill="none" stroke="var(--ih-green)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${points.map(p=>`<text x="${p.x}" y="177" text-anchor="middle" fill="var(--ih-muted)" font-size="12">${p.label}</text>${p.value==null?'':`<circle cx="${p.x}" cy="${p.y}" r="${state.month===p.i?6:4}" fill="${state.month===p.i?'var(--ih-blue)':'var(--ih-green)'}"/><text x="${p.x}" y="${p.y-12}" text-anchor="middle" fill="var(--ih-ink)" font-size="11">${compact(p.value)}</text><circle cx="${p.x}" cy="${p.y}" r="16" fill="transparent" data-tooltip="${p.label} · ${label}: ${fmt(p.value)}"/>`}`).join('')}</svg><div class="ih-funnel-labels" role="group" aria-label="เลือกสถิติที่แสดงในกราฟ">${metrics.map(([key,title])=>`<button type="button" class="ih-metric-button" data-trend-metric="${key}" aria-pressed="${trendMetric===key}"><span>${title}</span><strong>${fmt(d[key])}</strong></button>`).join('')}</div></div>`;
+ return `<div class="ih-funnel-line"><div class="ih-sub">${label} · แนวโน้มรายเดือน ปี 2569 · รวมเท่าที่มีข้อมูล</div><svg viewBox="0 0 570 190" role="img" data-has-values="${series.some(p=>Number.isFinite(p.value))}" aria-label="แนวโน้ม ${label} รายเดือน" style="width:100%;height:auto;display:block">${[0,.5,1].map(t=>`<line x1="52" y1="${150-t*125}" x2="532" y2="${150-t*125}" stroke="var(--ih-line)"/><text x="43" y="${154-t*125}" text-anchor="end" fill="var(--ih-muted)" font-size="12">${compact(maximum*t)}</text>`).join('')}<path d="${path}" fill="none" stroke="var(--ih-green)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>${points.map(p=>`<text x="${p.x}" y="177" text-anchor="middle" fill="var(--ih-muted)" font-size="12">${p.label}</text>${p.value==null?'':`<circle cx="${p.x}" cy="${p.y}" r="${state.month===p.i?6:4}" fill="${state.month===p.i?'var(--ih-blue)':'var(--ih-green)'}"/><text x="${p.x}" y="${p.y-12}" text-anchor="middle" fill="var(--ih-ink)" font-size="11">${compact(p.value)}</text><circle cx="${p.x}" cy="${p.y}" r="16" fill="transparent" data-tooltip="${p.label} · ${label}: ${fmt(p.value)}"/>`}`).join('')}</svg><div class="ih-funnel-labels" role="group" aria-label="เลือกสถิติที่แสดงในกราฟ">${metrics.map(([key,title])=>`<button type="button" class="ih-metric-button" data-trend-metric="${key}" aria-pressed="${trendMetric===key}"><span>${title}</span><strong>${fmt(d[key])}</strong></button>`).join('')}</div></div>`;
 }
 root.addEventListener('click',event=>{const target=event.target.closest('[data-trend-metric]');if(!target)return;trendMetric=target.dataset.trendMetric;const host=target.closest('.ih-funnel-line');const d=missingMetrics(selected(),state.page==='media'&&state.media!=='all'?state.media:null);if(d)host.outerHTML=funnelLine(d);cleanUnavailableCharts();root.querySelector(`[data-trend-metric="${trendMetric}"]`)?.focus();});
 
@@ -226,7 +226,7 @@ restoreOverviewCharts(m);
  }
  root.querySelectorAll('.ih-panel').forEach(p=>{
  const title=p.querySelector('h2')?.textContent;
- if(title==='เทรนสถิติ'||title?.startsWith('Funnel ·'))p.innerHTML=`<div class="ih-panel-head"><h2>${title}</h2>${Number.isFinite(d.impressions)?ready:missingTag}</div>${funnelLine(d)}`;
+ if(title==='เทรนสถิติ'||title?.startsWith('Funnel ·'))p.innerHTML=`<div class="ih-panel-head"><h2>${title}</h2>${['impressions','clicks','sessions','cart','checkout','orders'].some(key=>Number.isFinite(d[key]))?ready:missingTag}</div>${funnelLine(d)}`;
  if(title==='ตัวขับเคลื่อน · CPAS SHP'){
  const products=[['—','—',.50],['—','—',.30],['—','—-RTX-003',.20]];
  p.innerHTML=`<div class="ih-panel-head"><h2>${title}</h2>${missingTag}</div><div class="ih-sub">Campaign / Creative</div>${detailRows([['—', '—'],['—','—']])}<div class="ih-table-wrap" style="margin-top:14px"><table><thead><tr><th>หมวดหมู่สินค้า / Category</th><th>ยอดขาย (฿)</th></tr></thead><tbody>${products.map(([name,sku,share])=>`<tr><td>${name}</td><td>${fmt(NaN)}</td></tr>`).join('')}</tbody></table></div>${detailRows([['ลูกค้าใหม่ / ลูกค้าเดิม',fmt(d.newCustomers)+' / '+fmt(d.orders-d.newCustomers)],['CAC ',fmt(d.actual/d.newCustomers,2)+' บาท'],['ส่วนลด',fmt(d.discount)+' บาท'],['คืนเงิน',fmt(d.refund)+' บาท']])}`;
