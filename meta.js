@@ -21,7 +21,7 @@ export function reconcile(main,split){
   for(const key of ['actual','impressions','clicks','sales','orders','cart','checkout','landingPageViews']){
    const values=parts.map(p=>p?.[key]).filter(Number.isFinite);
    const total=values.length?values.reduce((a,b)=>a+b,0):null;
-   if(Number.isFinite(m[key])!==Number.isFinite(total)||(Number.isFinite(total)&&Math.abs(total-m[key])>(['actual','sales'].includes(key)?1:0.01)))throw new Error('Campaign '+key+' does not reconcile');
+   if(Number.isFinite(m[key])!==Number.isFinite(total)||(Number.isFinite(total)&&Math.abs(total-m[key])>(['actual','sales'].includes(key)?1:0.01)))throw new Error('Campaign '+key+' month '+m.month+' differs: '+total+' vs '+m[key]);
   }
  }
 }
