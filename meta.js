@@ -16,7 +16,7 @@ async function campaignInsights(env,year,until){
  const rows=[];const seen=new Set();
  for(let page=0;page<30;page++){
   const response=await fetch(`https://graph.facebook.com/v23.0/act_518873608460591/insights?${query}`,{headers:{Authorization:`Bearer ${env.META_ACCESS_TOKEN}`},signal:AbortSignal.timeout(20000)});
-  if(!response.ok)throw new Error('Meta campaign report failed');
+  if(!response.ok){const e=await response.json().catch(()=>({}));throw new Error('Meta campaign report failed '+response.status+' code '+(Number(e.error?.code)||0));}
   const data=await response.json();if(!Array.isArray(data.data))throw new Error('Invalid campaign report');rows.push(...data.data);
   if(!data.paging?.next)return rows;
   const after=data.paging?.cursors?.after;if(!after||seen.has(after))throw new Error('Incomplete campaign report');seen.add(after);query.set('after',after);
@@ -50,5 +50,5 @@ export async function metaReport(env){
   const result={year,through:until,updatedAt:new Date(now).toISOString(),accounts:[...accounts,...split],mainAccountSplit:true};
   await env.DB.prepare('INSERT INTO meta_report_cache(id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(key,JSON.stringify(result),now).run();
   return result;
- }catch(error){if(cached)return {...JSON.parse(cached.payload),stale:true};throw new Error('Meta report unavailable');}
+ }catch(error){if(cached)return {...JSON.parse(cached.payload),stale:true,refreshIssue: error.name==='TimeoutError'?'Meta timeout':String(error.message).slice(0,120)};throw new Error('Meta report unavailable');}
 }
