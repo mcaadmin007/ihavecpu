@@ -155,7 +155,7 @@ function enhanceMetrics(m){
 }
 
 const missingTag='<span class="ih-tag wait">ยังไม่มีข้อมูล</span>';
-function unavailableMetrics(sales,actual){return {sales,actual,orders:NaN,sessions:NaN,clicks:NaN,impressions:NaN,cart:NaN,checkout:NaN,newCustomers:NaN,gross:NaN,fees:NaN,shipping:NaN,discount:NaN,refund:NaN,contribution:NaN,profit:NaN};}
+function unavailableMetrics(sales,actual){return {sales,actual,orders:NaN,skuOrders:NaN,sessions:NaN,clicks:NaN,impressions:NaN,cart:NaN,checkout:NaN,newCustomers:NaN,gross:NaN,fees:NaN,shipping:NaN,discount:NaN,refund:NaN,contribution:NaN,profit:NaN};}
 
 function setReportSource(){
  months=combinedMonths;
@@ -177,7 +177,7 @@ function reportMetrics(month,name){
  const entries=name?[month.metrics[name]||{}]:mediaNames.map(n=>month.metrics[n]||{});
  // The main Meta account covers Facebook and CPAS iHAVECPU: count it once in the overview.
  if(!name&&!metaPayload?.mainAccountSplit){const main=metaPayload?.accounts.find(a=>a.name==='iHAVECPU (Meta)')?.months.find(x=>x.month===month.month);if(main)entries.push(main);}
- for(const key of ['impressions','clicks','orders','cart','checkout'])d[key]=sumAvailable(entries.map(x=>x[key]));
+ for(const key of ['impressions','clicks','orders','skuOrders','cart','checkout'])d[key]=sumAvailable(entries.map(x=>x[key]));
  return d;
 }
 
@@ -192,6 +192,8 @@ function funnelRows(d){return ['Impressions','Clicks','Sessions','Add to cart','
 let trendMetric='impressions';
 function funnelLine(d){
  const metrics=[['impressions','Impressions'],['clicks','Clicks'],['sessions','Sessions'],['cart','Add to cart'],['checkout','Checkout'],['orders','Orders']];
+ if(Number.isFinite(d.skuOrders))metrics.push(['skuOrders','SKU Orders · TikTok']);
+ if(!metrics.some(x=>x[0]===trendMetric))trendMetric='impressions';
  const label=metrics.find(x=>x[0]===trendMetric)[1];
  const series=months.map((m,i)=>{const name=state.page==='media'&&state.media!=='all'?state.media:null;const row=name?m.rows.find(r=>r[0]===name):null;const data=reportMetrics(m,name);return {i,label:m.short,value:Number.isFinite(data?.[trendMetric])?data[trendMetric]:null};});
  const maximum=Math.max(1,...series.map(x=>x.value||0))*1.15;
@@ -229,7 +231,7 @@ restoreOverviewCharts(m);
  }
  root.querySelectorAll('.ih-panel').forEach(p=>{
  const title=p.querySelector('h2')?.textContent;
- if(title==='เทรนสถิติ'||title?.startsWith('Funnel ·'))p.innerHTML=`<div class="ih-panel-head"><h2>${title}</h2>${['impressions','clicks','sessions','cart','checkout','orders'].some(key=>Number.isFinite(d[key]))?ready:missingTag}</div>${funnelLine(d)}`;
+ if(title==='เทรนสถิติ'||title?.startsWith('Funnel ·'))p.innerHTML=`<div class="ih-panel-head"><h2>${title}</h2>${['impressions','clicks','sessions','cart','checkout','orders','skuOrders'].some(key=>Number.isFinite(d[key]))?ready:missingTag}</div>${funnelLine(d)}`;
  if(title==='ตัวขับเคลื่อน · CPAS SHP'){
  const products=[['—','—',.50],['—','—',.30],['—','—-RTX-003',.20]];
  p.innerHTML=`<div class="ih-panel-head"><h2>${title}</h2>${missingTag}</div><div class="ih-sub">Campaign / Creative</div>${detailRows([['—', '—'],['—','—']])}<div class="ih-table-wrap" style="margin-top:14px"><table><thead><tr><th>หมวดหมู่สินค้า / Category</th><th>ยอดขาย (฿)</th></tr></thead><tbody>${products.map(([name,sku,share])=>`<tr><td>${name}</td><td>${fmt(NaN)}</td></tr>`).join('')}</tbody></table></div>${detailRows([['ลูกค้าใหม่ / ลูกค้าเดิม',fmt(d.newCustomers)+' / '+fmt(d.orders-d.newCustomers)],['CAC ',fmt(d.actual/d.newCustomers,2)+' บาท'],['ส่วนลด',fmt(d.discount)+' บาท'],['คืนเงิน',fmt(d.refund)+' บาท']])}`;
