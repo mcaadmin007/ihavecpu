@@ -68,3 +68,17 @@ test('Campaign reconciliation rejects a matching-spend report with incorrect sal
 test('Open-month drift is recorded and bounded; closed months remain strict',()=>{
  const main={months:[{month:10,actual:100000,impressions:1000000}]};const split=[{months:[{month:10,actual:99999,impressions:999991}]}];const checks=reconcile(main,split,10);assert.equal(checks.find(x=>x.metric==='impressions').difference,-9);assert.throws(()=>reconcile(main,split),/impressions/);split[0].months[0].actual=90000;assert.throws(()=>reconcile(main,split,10),/actual/);
 });
+
+test('Shopee shared-item sales never falls back to ordinary purchase value',()=>{
+ const row={date_start:'2026-09-01',spend:'40',action_values:[{action_type:'omni_purchase',value:'118024'}],catalog_segment_value:[{action_type:'omni_purchase',value:'456789'},{action_type:'app_custom_event.fb_mobile_purchase',value:'456789'}]};
+ assert.equal(normalize(row,true).sales,456789);
+ assert.equal(normalize({...row,catalog_segment_value:[]},true).sales,null);
+ assert.equal(normalize(row).sales,118024);
+});
+
+test('All CPAS campaign sales use shared values while Facebook keeps ordinary values',()=>{
+ const base={date_start:'2026-09-01',spend:'40',action_values:[{action_type:'omni_purchase',value:'10'}],catalog_segment_value:[{action_type:'omni_purchase',value:'100'}]};
+ const split=splitMainCampaigns([{...base,campaign_name:'260701_CPAS -July Promotion DDR4'},{...base,campaign_name:'Engagement'}],true);
+ assert.equal(split.find(a=>a.name==='CPAS iHAVECPU').months[0].sales,100);
+ assert.equal(split.find(a=>a.name==='Facebook').months[0].sales,10);
+});
