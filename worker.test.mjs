@@ -55,3 +55,13 @@ test('Main Meta account is partitioned by CPAS campaign token without double-cou
  const rows=[{campaign_name:'260701_CPAS -July Promotion DDR4',date_start:'2026-07-01',spend:'10',impressions:'100',clicks:'5'},{campaign_name:'260701_Engagement',date_start:'2026-07-01',spend:'20',impressions:'200',clicks:'8'},{campaign_name:'260701_cpas_test',date_start:'2026-07-01',spend:'3',impressions:'30',clicks:'2'}];
  const split=splitMainCampaigns(rows);assert.equal(split.find(a=>a.name==='Facebook').months[0].actual,20);assert.equal(split.find(a=>a.name==='CPAS iHAVECPU').months[0].actual,13);assert.equal(split.reduce((n,a)=>n+a.months[0].impressions,0),330);assert.equal(split[0].months[0].sales,null);
 });
+import {completeMonths,reconcile} from './meta.js';
+test('Meta checkout uses the reported omni_initiated_checkout event once',()=>{
+ const d=normalize({date_start:'2026-01-01',actions:[{action_type:'omni_initiated_checkout',value:'15'},{action_type:'initiate_checkout',value:'15'}]});assert.equal(d.checkout,15);assert.equal(d.sales,null);
+});
+test('Completed Meta range includes inactive months without inventing revenue',()=>{
+ const rows=completeMonths([{month:2,actual:12,sales:null}], '2026-10-14');assert.equal(rows.length,10);assert.equal(rows[1].actual,12);assert.equal(rows[8].actual,0);assert.equal(rows[8].status,'no_activity');assert.equal(rows[8].sales,null);
+});
+test('Campaign reconciliation rejects a matching-spend report with incorrect sales',()=>{
+ const main={months:[{month:1,actual:30,impressions:300,clicks:30,sales:60}]};const split=[{months:[{month:1,actual:10,impressions:100,clicks:10,sales:20}]},{months:[{month:1,actual:20,impressions:200,clicks:20,sales:40}]}];assert.doesNotThrow(()=>reconcile(main,split));split[1].months[0].sales=50;assert.throws(()=>reconcile(main,split),/sales/);
+});
