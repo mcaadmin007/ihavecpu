@@ -65,3 +65,6 @@ test('Completed Meta range includes inactive months without inventing revenue',(
 test('Campaign reconciliation rejects a matching-spend report with incorrect sales',()=>{
  const main={months:[{month:1,actual:30,impressions:300,clicks:30,sales:60}]};const split=[{months:[{month:1,actual:10,impressions:100,clicks:10,sales:20}]},{months:[{month:1,actual:20,impressions:200,clicks:20,sales:40}]}];assert.doesNotThrow(()=>reconcile(main,split));split[1].months[0].sales=50;assert.throws(()=>reconcile(main,split),/sales/);
 });
+test('Open-month drift is recorded and bounded; closed months remain strict',()=>{
+ const main={months:[{month:10,actual:100000,impressions:1000000}]};const split=[{months:[{month:10,actual:99999,impressions:999991}]}];const checks=reconcile(main,split,10);assert.equal(checks.find(x=>x.metric==='impressions').difference,-9);assert.throws(()=>reconcile(main,split),/impressions/);split[0].months[0].actual=90000;assert.throws(()=>reconcile(main,split,10),/actual/);
+});
