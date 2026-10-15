@@ -82,3 +82,13 @@ test('All CPAS campaign sales use shared values while Facebook keeps ordinary va
  assert.equal(split.find(a=>a.name==='CPAS iHAVECPU').months[0].sales,100);
  assert.equal(split.find(a=>a.name==='Facebook').months[0].sales,10);
 });
+test('CPAS carts and orders use shared catalog actions exclusively, preserving zero and missing',()=>{
+ const row={date_start:'2026-09-01',actions:[{action_type:'omni_purchase',value:'999'},{action_type:'omni_add_to_cart',value:'888'}],catalog_segment_actions:[{action_type:'omni_purchase',value:'12'},{action_type:'omni_add_to_cart',value:'0'}]};
+ assert.equal(normalize(row,true).orders,12);assert.equal(normalize(row,true).cart,0);
+ assert.equal(normalize({...row,catalog_segment_actions:[]},true).orders,null);
+ assert.equal(normalize({...row,catalog_segment_actions:[]},true).cart,null);
+ assert.equal(normalize(row).orders,999);assert.equal(normalize(row).cart,888);
+ const split=splitMainCampaigns([{...row,campaign_name:'260701_CPAS -July Promotion DDR4'},{...row,campaign_name:'Facebook'}],true);
+ assert.equal(split.find(a=>a.name==='CPAS iHAVECPU').months[0].orders,12);
+ assert.equal(split.find(a=>a.name==='Facebook').months[0].orders,999);
+});
