@@ -174,6 +174,8 @@ function reportMetrics(month,name){
  const d=unavailableMetrics(name?row?.[3]:month.sales,name?row?.[2]:month.actual);
  if(!month.metrics)return d;
  const entries=name?[month.metrics[name]||{}]:mediaNames.map(n=>month.metrics[n]||{});
+ // The main Meta account covers Facebook and CPAS iHAVECPU: count it once in the overview.
+ if(!name){const main=metaPayload?.accounts.find(a=>a.name==='iHAVECPU (Meta)')?.months.find(x=>x.month===month.month);if(main)entries.push(main);}
  for(const key of ['impressions','clicks','orders','cart','checkout'])d[key]=sumAvailable(entries.map(x=>x[key]));
  return d;
 }
