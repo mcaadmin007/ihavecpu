@@ -39,10 +39,10 @@ export async function metaReport(env){
  if(!env.META_ACCESS_TOKEN)throw new Error('Meta not configured');
  await env.DB.prepare('CREATE TABLE IF NOT EXISTS meta_report_cache (id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at INTEGER NOT NULL)').run();
  const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Bangkok'}).format(new Date()));
- const key=String(year)+'-campaign-v1', now=Date.now();
+ const key=String(year)+'-campaign-audit-v2', now=Date.now();
  let cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(key).first();
  if(cached&&now-cached.updated_at<3600000)return JSON.parse(cached.payload);
- if(!cached)cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(String(year)).first();
+ if(!cached)cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(String(year)+'-campaign-v1').first();
  try{
   const until=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Bangkok'}).format(new Date(now-86400000));
   const campaignRows=await campaignInsights(env,year,until),split=splitMainCampaigns(campaignRows);
@@ -52,7 +52,7 @@ export async function metaReport(env){
    if(!response.ok)throw new Error('Meta request failed');
    const result=await response.json();
    if(!Array.isArray(result.data)||result.paging?.next)throw new Error('Incomplete Meta report');
-   return {id,name,months:result.data.map(normalize)};
+   return {id,name,months:result.data.map(normalize),actionBreakdown:result.data.map(r=>({month:Number(r.date_start.slice(5,7)),actions:r.actions||[],actionValues:r.action_values||[]}))};
   }));
   const main=accounts.find(a=>a.name==='iHAVECPU (Meta)');
   for(const m of main.months){
