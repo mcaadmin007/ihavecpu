@@ -15,15 +15,20 @@ export function completeMonths(months,through){
  const last=Number(through.slice(5,7));
  return Array.from({length:last},(_,i)=>months.find(m=>m.month===i+1)||{month:i+1,actual:0,sales:null,impressions:0,clicks:0,orders:null,cart:null,checkout:null,landingPageViews:null,status:'no_activity'});
 }
-export function reconcile(main,split){
+export function reconcile(main,split,openMonth=null){
+ const checks=[];
  for(const m of main.months){
   const parts=split.map(a=>a.months.find(x=>x.month===m.month));
   for(const key of ['actual','impressions','clicks','sales','orders','cart','checkout','landingPageViews']){
    const values=parts.map(p=>p?.[key]).filter(Number.isFinite);
    const total=values.length?values.reduce((a,b)=>a+b,0):null;
-   if(Number.isFinite(m[key])!==Number.isFinite(total)||(Number.isFinite(total)&&Math.abs(total-m[key])>(['actual','sales'].includes(key)?1:0.01)))throw new Error('Campaign '+key+' month '+m.month+' differs: '+total+' vs '+m[key]);
+   const difference=Number.isFinite(total)&&Number.isFinite(m[key])?total-m[key]:null;
+   const tolerance=m.month===openMonth?Math.max(1,Math.abs(m[key]||0)*0.0001):(['actual','sales'].includes(key)?1:0.01);
+   if(Number.isFinite(m[key])!==Number.isFinite(total)||(difference!==null&&Math.abs(difference)>tolerance))throw new Error('Campaign '+key+' month '+m.month+' differs: '+total+' vs '+m[key]);
+   checks.push({month:m.month,metric:key,campaignTotal:total,accountTotal:m[key]??null,difference,status:difference===0||difference===null?'matched':'reporting_snapshot_difference'});
   }
  }
+ return checks;
 }
 async function campaignInsights(env,year,until){
  const key=`campaign-job-${year}-${until}`,headers={Authorization:`Bearer ${env.META_ACCESS_TOKEN}`};
@@ -69,9 +74,9 @@ export async function metaReport(env){
    return {id,name,months:result.data.map(normalize),actionBreakdown:result.data.map(r=>({month:Number(r.date_start.slice(5,7)),actions:r.actions||[],actionValues:r.action_values||[]}))};
   }));
   const main=accounts.find(a=>a.name==='iHAVECPU (Meta)');
-  reconcile(main,split);
+  const accountReconciliation=reconcile(main,split,Number(until.slice(5,7))); 
   for(const account of [...accounts,...split]){account.months=completeMonths(account.months,until);account.source=account.source||'Meta API';account.through=until;}
-  const result={year,through:until,updatedAt:new Date(now).toISOString(),accounts:[...accounts,...split],mainAccountSplit:true};
+  const result={year,through:until,updatedAt:new Date(now).toISOString(),accounts:[...accounts,...split],mainAccountSplit:true,accountReconciliation,mainDisplaySource:"Campaign report; totals sum the same campaign snapshot"};
   await env.DB.prepare('INSERT INTO meta_report_cache(id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(key,JSON.stringify(result),now).run();
   return result;
  }catch(error){if(String(error.message).startsWith('Campaign ')&&String(error.message).includes(' differs: ')){const through=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Bangkok'}).format(new Date(now-86400000));await env.DB.prepare('UPDATE meta_report_cache SET updated_at=0 WHERE id=?').bind(`campaign-job-${year}-${through}`).run();}if(cached)return {...JSON.parse(cached.payload),stale:true,refreshIssue: error.name==='TimeoutError'?'Meta timeout':String(error.message).slice(0,120)};throw new Error('Meta report unavailable');}
