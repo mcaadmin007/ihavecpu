@@ -74,5 +74,5 @@ export async function metaReport(env){
   const result={year,through:until,updatedAt:new Date(now).toISOString(),accounts:[...accounts,...split],mainAccountSplit:true};
   await env.DB.prepare('INSERT INTO meta_report_cache(id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(key,JSON.stringify(result),now).run();
   return result;
- }catch(error){if(cached)return {...JSON.parse(cached.payload),stale:true,refreshIssue: error.name==='TimeoutError'?'Meta timeout':String(error.message).slice(0,120)};throw new Error('Meta report unavailable');}
+ }catch(error){if(String(error.message).startsWith('Campaign ')&&String(error.message).includes(' differs: ')){const through=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Bangkok'}).format(new Date(now-86400000));await env.DB.prepare('UPDATE meta_report_cache SET updated_at=0 WHERE id=?').bind(`campaign-job-${year}-${through}`).run();}if(cached)return {...JSON.parse(cached.payload),stale:true,refreshIssue: error.name==='TimeoutError'?'Meta timeout':String(error.message).slice(0,120)};throw new Error('Meta report unavailable');}
 }
