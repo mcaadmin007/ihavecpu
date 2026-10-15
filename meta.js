@@ -12,11 +12,23 @@ export function splitMainCampaigns(rows){
  return [...groups].map(([name,byMonth])=>({id:'518873608460591',name,source:'Meta API · campaign',months:[...byMonth].sort((a,b)=>a[0]-b[0]).map(([month,list])=>Object.fromEntries([['month',month],...Object.keys(list[0]).filter(k=>k!=='month').map(k=>{const values=list.map(d=>d[k]).filter(Number.isFinite);return [k,values.length?values.reduce((a,b)=>a+b,0):null];})]))}));
 }
 async function campaignInsights(env,year,until){
- const query=new URLSearchParams({fields:'campaign_id,campaign_name,date_start,date_stop,spend,impressions,clicks,actions,action_values',level:'campaign',time_increment:'monthly',time_range:JSON.stringify({since:`${year}-01-01`,until}),limit:'500'});
- const rows=[];const seen=new Set();
+ const key=`campaign-job-${year}-${until}`,headers={Authorization:`Bearer ${env.META_ACCESS_TOKEN}`};
+ const stored=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(key).first();
+ let job=stored?JSON.parse(stored.payload):null;
+ if(!job||Date.now()-stored.updated_at>3600000){
+  const body=new URLSearchParams({fields:'campaign_id,campaign_name,date_start,date_stop,spend,impressions,clicks,actions,action_values',level:'campaign',time_increment:'monthly',time_range:JSON.stringify({since:`${year}-01-01`,until})});
+  const response=await fetch('https://graph.facebook.com/v23.0/act_518873608460591/insights',{method:'POST',headers,body,signal:AbortSignal.timeout(60000)});
+  const result=await response.json();if(!response.ok||!/^\d+$/.test(result.report_run_id||''))throw new Error('Meta async report creation failed');
+  job={id:result.report_run_id};
+  await env.DB.prepare('INSERT INTO meta_report_cache(id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at').bind(key,JSON.stringify(job),Date.now()).run();
+ }
+ const statusResponse=await fetch(`https://graph.facebook.com/v23.0/${job.id}?fields=async_status,async_percent_completion`,{headers,signal:AbortSignal.timeout(60000)});
+ const status=await statusResponse.json();if(!statusResponse.ok)throw new Error('Meta async status unavailable');
+ if(status.async_status!=='Job Completed')throw new Error(status.async_status==='Job Failed'?'Meta async report failed':'Meta report preparing');
+ const query=new URLSearchParams({limit:'500'}),rows=[],seen=new Set();
  for(let page=0;page<30;page++){
-  const response=await fetch(`https://graph.facebook.com/v23.0/act_518873608460591/insights?${query}`,{headers:{Authorization:`Bearer ${env.META_ACCESS_TOKEN}`},signal:AbortSignal.timeout(20000)});
-  if(!response.ok){const e=await response.json().catch(()=>({}));throw new Error('Meta campaign report failed '+response.status+' code '+(Number(e.error?.code)||0));}
+  const response=await fetch(`https://graph.facebook.com/v23.0/${job.id}/insights?${query}`,{headers,signal:AbortSignal.timeout(60000)});
+  if(!response.ok)throw new Error('Meta campaign report failed');
   const data=await response.json();if(!Array.isArray(data.data))throw new Error('Invalid campaign report');rows.push(...data.data);
   if(!data.paging?.next)return rows;
   const after=data.paging?.cursors?.after;if(!after||seen.has(after))throw new Error('Incomplete campaign report');seen.add(after);query.set('after',after);
@@ -33,15 +45,15 @@ export async function metaReport(env){
  if(!cached)cached=await env.DB.prepare('SELECT payload,updated_at FROM meta_report_cache WHERE id=?').bind(String(year)).first();
  try{
   const until=new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Bangkok'}).format(new Date(now-86400000));
+  const campaignRows=await campaignInsights(env,year,until),split=splitMainCampaigns(campaignRows);
   const accounts=await Promise.all(ACCOUNTS.map(async([id,name])=>{
    const query=new URLSearchParams({fields:'account_id,date_start,date_stop,spend,impressions,clicks,actions,action_values',level:'account',time_increment:'monthly',time_range:JSON.stringify({since:`${year}-01-01`,until}),limit:'100'});
-   const response=await fetch(`https://graph.facebook.com/v23.0/act_${id}/insights?${query}`,{headers:{Authorization:`Bearer ${env.META_ACCESS_TOKEN}`},signal:AbortSignal.timeout(20000)});
+   const response=await fetch(`https://graph.facebook.com/v23.0/act_${id}/insights?${query}`,{headers:{Authorization:`Bearer ${env.META_ACCESS_TOKEN}`},signal:AbortSignal.timeout(60000)});
    if(!response.ok)throw new Error('Meta request failed');
    const result=await response.json();
    if(!Array.isArray(result.data)||result.paging?.next)throw new Error('Incomplete Meta report');
    return {id,name,months:result.data.map(normalize)};
   }));
-  const campaignRows=await campaignInsights(env,year,until),split=splitMainCampaigns(campaignRows);
   const main=accounts.find(a=>a.name==='iHAVECPU (Meta)');
   for(const m of main.months){
    const spend=split.reduce((n,a)=>n+(a.months.find(x=>x.month===m.month)?.actual||0),0);
