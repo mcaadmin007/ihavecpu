@@ -179,7 +179,7 @@ function reportMetrics(month,name){
  const entries=name?[month.metrics[name]||{}]:mediaNames.map(n=>month.metrics[n]||{});
  // The main Meta account covers Facebook and CPAS iHAVECPU: count it once in the overview.
  if(!name&&!metaPayload?.mainAccountSplit){const main=metaPayload?.accounts.find(a=>a.name==='iHAVECPU (Meta)')?.months.find(x=>x.month===month.month);if(main)entries.push(main);}
- for(const key of ['impressions','clicks','orders','skuOrders','cart','checkout','landingPageViews','conversions','unitsSold'])d[key]=sumAvailable(entries.map(x=>x[key]));
+ for(const key of ['impressions','clicks','orders','skuOrders','cart','checkout','landingPageViews','conversions','unitsSold','likes','comments','shares','inbox'])d[key]=sumAvailable(entries.map(x=>x[key]));
  return d;
 }
 
@@ -224,8 +224,24 @@ root.addEventListener('click',e=>{let b=e.target.closest('[data-laz-metric]');if
 
 
 
+let fbSelected=new Set(['impressions','inbox']);
+const fbDefs=[['impressions','Impression','','#3978ff'],['reach','Reach','','#16805b'],['frequency','Frequency','','#9e68ca'],['cpm','CPM','THB','#e58c32'],['cpr','CPR','THB','#5792c8'],['likes','Like','','#df647e'],['comments','Comment','','#879347'],['shares','Share','','#2b9caa'],['inbox','Inbox','','#8e73c7'],['costInbox','Cost per inbox','THB','#5e8893']];
+function fbMetrics(d){return {...d,reach:NaN,frequency:NaN,cpr:NaN,cpm:d.impressions>0?d.actual/d.impressions*1000:NaN,costInbox:d.inbox>0?d.actual/d.inbox:NaN};}
+function fbFormat(v,k){return fmt(v,['impressions','reach','likes','comments','shares','inbox'].includes(k)?0:2);}
+function fbFunnel(d){
+ d=fbMetrics(d);const prev=state.month>0?fbMetrics(reportMetrics(months[state.month-1],'Facebook'),state.month-1):null;
+ const cards=fbDefs.map(([key,label,unit,color])=>{let delta=prev&&Number.isFinite(d[key])&&Number.isFinite(prev[key])&&prev[key]!==0?(d[key]-prev[key])/Math.abs(prev[key])*100:null;let good=delta!==null&&(key==='costOrder'?delta<0:['orders','unitsSold','sales','roi','ctr'].includes(key)?delta>0:false);let tone=delta===null||delta===0||key==='actual'?'#687785':good?'#16805b':'#c53b48';return `<button class="fb-card" data-fb-metric="${key}" aria-pressed="${fbSelected.has(key)}"><span class="fb-label">${label}<span class="fb-check" aria-hidden="true">${fbSelected.has(key)?'✓':''}</span></span><strong>${fbFormat(d[key],key)}${unit?` <small>${unit}</small>`:''}</strong><span class="fb-comparison"><span>${state.month<0?'สะสมช่วงที่มีข้อมูล':'เทียบเดือนก่อน'}</span><b style="color:${tone}">${delta===null?'—':(delta>0?'↑ +':delta<0?'↓ ':'')+fmt(delta,2)+'%'}</b></span></button>`;}).join('');
+ const plots=fbDefs.filter(([key])=>fbSelected.has(key)).map(([key,label,unit,color])=>{let series=months.map((m,i)=>({i,name:m.short,v:fbMetrics(reportMetrics(m,'Facebook'),i)[key]})),max=Math.max(1,...series.map(p=>Number.isFinite(p.v)?p.v:0))*1.15;let path='',gap=true;let x=i=>55+i*485/Math.max(1,series.length-1),y=v=>165-v/max*130;for(const p of series){if(!Number.isFinite(p.v)){gap=true;continue;}path+=(gap?'M':'L')+x(p.i)+','+y(p.v)+' ';gap=false;}return `<div class="fb-plot"><h3><i style="background:${color}"></i>${label} <small>${unit}</small></h3><svg viewBox="0 0 585 210" role="img" aria-label="แนวโน้ม ${label} รายเดือน">${[0,.5,1].map(t=>`<line x1="55" x2="540" y1="${y(t*max)}" y2="${y(t*max)}" stroke="var(--ih-line)"/><text x="48" y="${y(t*max)+4}" text-anchor="end" fill="var(--ih-muted)" font-size="10">${max>=1e6?fmt(t*max/1e6,1)+'M':max>=1000?fmt(t*max/1000,1)+'K':fmt(t*max,1)}</text>`).join('')}<path d="${path}" stroke="${color}" fill="none" stroke-width="2.5"/>${series.map(p=>`<text x="${x(p.i)}" y="193" text-anchor="middle" font-size="10" fill="var(--ih-muted)">${p.name}</text>${Number.isFinite(p.v)?`<circle cx="${x(p.i)}" cy="${y(p.v)}" r="${state.month===p.i?6:3.5}" fill="${color}"><title>${p.name} · ${label}: ${fbFormat(p.v,key)} ${unit}</title></circle>`:''}`).join('')}</svg></div>`;}).join('');
+ return `<div class="fb-funnel"><div class="fb-cards" role="group" aria-label="เลือกสถิติ Facebook">${cards}</div><p class="ih-sub">เลือกการ์ดเพื่อเปิด–ปิดกราฟ · Like = การถูกใจเพจ · Inbox = การเริ่มสนทนาทางข้อความ</p><div class="fb-plots">${plots||'<div class="ih-sub">เลือกอย่างน้อยหนึ่งการ์ดเพื่อดูแนวโน้ม</div>'}</div><p class="ih-sub">Reach / Frequency รอข้อมูลแบบไม่นับคนซ้ำ · CPR รอแยกประเภทผลลัพธ์ของแคมเปญ</p></div>`;
+}
+root.addEventListener('click',e=>{let b=e.target.closest('[data-fb-metric]');if(!b)return;let k=b.dataset.fbMetric;fbSelected.has(k)?fbSelected.delete(k):fbSelected.add(k);b.closest('.fb-funnel').outerHTML=fbFunnel(missingMetrics(selected(),'Facebook'));root.querySelector(`[data-fb-metric="${k}"]`)?.focus();});
+
+
+
+
 let trendMetric='impressions';
 function funnelLine(d){
+ if(state.page==='media'&&state.media==='Facebook')return fbFunnel(d);
  if(state.page==='media'&&state.media==='INAPP LAZ')return lazFunnel(d);
  if(state.page==='media'&&state.media==='TIKTOK GMVMAX')return tikFunnel(d);
  let metrics=[['impressions','Impressions'],['clicks','Clicks'],['sessions','Sessions'],['cart','Add to cart'],['checkout','Checkout'],['orders','Orders']];
