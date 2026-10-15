@@ -50,3 +50,8 @@ test('Meta API rejects writes and hides errors',async()=>{
  const response=await worker.fetch(new Request('https://example.com/api/meta'),env);
  assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'Meta report unavailable'});
 });
+import {splitMainCampaigns} from './meta.js';
+test('Main Meta account is partitioned by CPAS campaign token without double-counting',()=>{
+ const rows=[{campaign_name:'260701_CPAS -July Promotion DDR4',date_start:'2026-07-01',spend:'10',impressions:'100',clicks:'5'},{campaign_name:'260701_Engagement',date_start:'2026-07-01',spend:'20',impressions:'200',clicks:'8'},{campaign_name:'260701_cpas_test',date_start:'2026-07-01',spend:'3',impressions:'30',clicks:'2'}];
+ const split=splitMainCampaigns(rows);assert.equal(split.find(a=>a.name==='Facebook').months[0].actual,20);assert.equal(split.find(a=>a.name==='CPAS iHAVECPU').months[0].actual,13);assert.equal(split.reduce((n,a)=>n+a.months[0].impressions,0),330);assert.equal(split[0].months[0].sales,null);
+});
